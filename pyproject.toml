@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "artifacts-poetry-plugin"
+version = "1.1.0.dev"
+description = ""
+authors = []
+
+[tool.poetry.dependencies]
+python = "^3.8"
+poetry = ">=1.6"
+cleo = ">=2.0.1"
+
+[tool.poetry.group.dev.dependencies]
+behave = "^1.2.6"
+black = "^23.12.1"
+
+[tool.poetry.plugins."poetry.application.plugin"]
+artifacts-poetry-plugin = "artifacts_poetry_plugin.plugin:ArtifactsPoetryPlugin"
+
+[build-system]
+requires = ["poetry-core>=1.6.0"]
+build-backend = "poetry.core.masonry.api"
