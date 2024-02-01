@@ -1,7 +1,7 @@
 # Artifacts Poetry Plugin
 
 ## Description
-The Artifacts Poetry Plugin is used to print out all direct and transitive package dependencies of a python project.
+The Artifacts Poetry Plugin is used to deploy all direct and transitive package dependencies of a python project to an alternate repository. The plugin requires the use of a pyproject.toml and generated poetry.lock file. All dependencies must be installed in poetry's local artifacts cache. 
 
 ## Requirments
 Poetry >= 1.6.0
@@ -19,12 +19,11 @@ Below describes the steps needed to uninstall the plugin.
 
 * Execute the command `pip uninstall artifacts-poetry-plugin` to uninstall the plugin. 
 
-## Test
-To run the plugins tests, go to to the tests directory and execute the command `behave`. All tests should pass successfully. 
-
 ## Commands
 Below describe the different commands the plugin offers
 
-### Artifacts List
-* Used to list all the direct and transitive package dependencies of a python project. 
-* To run, execute the command `poetry artifacts-list` in a python project. 
+### Artifacts Deploy
+* Used to deploy all the direct and transitive package dependencies of a python project. 
+* You must register a repository using the following command `poetry add <repository-name> <url>` where `repository-name` is the name of the repository and `url` is the url to the repository
+* If the repository requires credentials, use the following to register to the previously added repository `poetry config http-basic.<repository-name> <username> <password>`.
+* To run, execute the command `poetry artifacts-deploy <repository-name>` in a python project. 

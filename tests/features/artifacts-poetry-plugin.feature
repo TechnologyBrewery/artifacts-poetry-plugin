@@ -6,9 +6,16 @@ Feature: Artifacts-Poetry-Plugin
             |   key     | package       | version    | 
             |   A       | poetry        | 1.6.0      |
             |   B       | cleo          | 2.0.1      | 
+            |   C       | crytography   | 1.0.0      | 
 
 
-    Scenario: Locate all dependent wheel files from a python project
-        Given a Python project with dependencies on artifacts A,B
-        When the Python dependency search is triggered
-        Then artifacts A,B are located in the local cache 
+    Scenario: Get all deployable Python dependencies from a project
+        Given a Python project with dependencies on package A,B
+        When the Python deployable dependency is triggered. 
+        Then package A,B are able to be deployed to an alternate repository.  
+    
+    Scenario: Get a non deployable Python dependency from a project
+        Given a Python project with dependencies on package A
+        And no wheel file associated with package A
+        When the Python deployable dependency is triggered. 
+        Then package A are not able to be deployed to an alternate repository.
