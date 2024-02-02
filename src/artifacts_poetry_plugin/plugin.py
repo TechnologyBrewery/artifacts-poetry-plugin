@@ -94,15 +94,31 @@ def add_project_package(poetry, packages: List[Package]):
     packages.append(project_package)
 
 
-def get_deploy_packages(poetry, cache_dir):
+def get_all_poetry(path):
+    poetry_files = []
+    for root, dirs, files in os.walk(Path(path)):
+        for file in files:
+            if file == "pyproject.toml":
+                poetry_files.append(Factory().create_poetry(Path(root)))
+    return poetry_files
+
+
+def get_deploy_packages(root_dir, cache_dir):
     """Gets all deployable packages from the given cache directory. A package is deployable if it has any wheel files associated with it"""
-    packages = get_packages(poetry)
-    wheel_files = get_cached_wheel_files(cache_dir)
-    deployable_packages, non_deployable_packages = add_package_paths(
-        packages=packages, wheel_files=wheel_files
-    )
-    add_project_package(poetry, deployable_packages)
-    return deployable_packages, non_deployable_packages
+    total_deployable_packages = []
+    total_non_deployable_packages = []
+    poetry_files = get_all_poetry(root_dir)
+    print(poetry_files)
+    for poetry in poetry_files:
+        packages = get_packages(poetry)
+        wheel_files = get_cached_wheel_files(cache_dir)
+        deployable_packages, non_deployable_packages = add_package_paths(
+            packages=packages, wheel_files=wheel_files
+        )
+        total_deployable_packages.extend(deployable_packages)
+        total_non_deployable_packages.extend(non_deployable_packages)
+    add_project_package(poetry, total_deployable_packages)
+    return total_deployable_packages, total_non_deployable_packages
 
 
 class ArtifactsDeploy(Command):
@@ -124,7 +140,7 @@ class ArtifactsDeploy(Command):
         username = repo_data["username"]
         password = repo_data["password"]
         packages, non_deployable_packages = get_deploy_packages(
-            poetry,
+            os.getcwd(),
             poetry.config.artifacts_cache_directory.absolute().as_posix(),
         )
         upload_packages(

@@ -2,9 +2,7 @@ from behave import given
 from behave import when
 from behave import then
 from artifacts_poetry_plugin.plugin import get_deploy_packages
-from poetry.factory import Factory
 import os
-from pathlib import Path
 
 TEST_RESOURCES_DIR = os.path.join(os.getcwd(), "tests", "resources")
 TEMPLATE_PY_PROJECT = os.path.join(TEST_RESOURCES_DIR, "template.toml")
@@ -71,9 +69,8 @@ def step_impl(context, keys):
 
 @when("the Python deployable dependency is triggered.")
 def step_impl(context):
-    poetry = Factory().create_poetry(Path(POETRY_LOCK))
     deploy_packages, non_deploy_packages = get_deploy_packages(
-        poetry, TEST_RESOURCES_DIR
+        os.getcwd(), TEST_RESOURCES_DIR
     )
     context.deploy_packages = deploy_packages
     context.non_deploy_packages = non_deploy_packages
