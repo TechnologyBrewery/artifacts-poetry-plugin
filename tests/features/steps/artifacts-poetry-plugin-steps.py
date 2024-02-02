@@ -69,6 +69,7 @@ def step_impl(context, keys):
                 )
             poetry_lock.write("]\n\n")
 
+
 @given("no wheel file associated with package {keys}")
 def step_impl(context, keys):
     for key in keys.split(","):
@@ -88,11 +89,13 @@ def step_impl(context):
     context.deploy_packages = deploy_packages
     context.non_deploy_packages = non_deploy_packages
 
+
 @then("package {keys} are able to be deployed to an alternate repository.")
 def step_impl(context, keys):
     deploy_package_set = get_package_set(context.deploy_packages)
     compare_package_set = get_package_set_from_keys(keys, context.packages)
     assert compare_package_set.issubset(deploy_package_set)
+
 
 @then("package {keys} are not able to be deployed to an alternate repository.")
 def step_impl(context, keys):
@@ -100,11 +103,13 @@ def step_impl(context, keys):
     compare_non_deploy_package_set = get_package_set_from_keys(keys, context.packages)
     assert compare_non_deploy_package_set.issubset(non_deploy_package_set)
 
+
 def get_package_set(packages):
     package_set = set()
     for package in packages:
         package_set.add((package.name, package.pretty_version))
     return package_set
+
 
 def get_package_set_from_keys(keys, packages):
     package_set = set()

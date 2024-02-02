@@ -9,6 +9,7 @@ from poetry.publishing.uploader import Uploader
 from poetry.utils.authenticator import Authenticator
 from poetry.core.packages.package import Package
 from cleo.helpers import argument
+from poetry.config.config import Config
 from typing import List
 import logging
 
@@ -98,7 +99,7 @@ class ArtifactsDeploy(Command):
     def upload_packages(
         self, poetry, packages: List[Package], url, username, password, io
     ):
-        uploader = Uploader(poetry=poetry, io=io)
+        uploader = Uploader(poetry=Factory().create_poetry(), io=io)
         uploader.auth(username=username, password=password)
         session = uploader.make_session()
         for package in packages:
@@ -152,8 +153,7 @@ class ArtifactsDeploy(Command):
     def handle(self) -> int:
         self.line("Artifacts Deploy")
         repo_name = self.argument(REPOSITORY_NAME)
-        poetry = Factory().create_poetry(Path(os.getcwd()))
-        config = poetry.config
+        config = Config.create()
         packages, non_deployable_packages = self.create_packages(
             os.getcwd(),
             config.artifacts_cache_directory.absolute().as_posix(),
