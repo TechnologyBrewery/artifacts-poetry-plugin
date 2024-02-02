@@ -1,7 +1,7 @@
 from behave import given
 from behave import when
 from behave import then
-from artifacts_poetry_plugin.plugin import get_deploy_packages
+from artifacts_poetry_plugin.plugin import ArtifactsDeploy
 import os
 
 TEST_RESOURCES_DIR = os.path.join(os.getcwd(), "tests", "resources")
@@ -37,11 +37,8 @@ def the_following_artifacts(context):
         filename = f"{name}-{version}.whl"
         file = open(os.path.join(TEST_RESOURCES_DIR, filename), "w")
         file.close()
-        files = []
-        files.append(filename)
-        context.packages[row["key"]] = Package(
-            name=name, pretty_version=version, files=files
-        )
+        files = [filename]
+        context.packages[row["key"]] = Package(name, version, files)
 
 
 @given("a Python project with dependencies on package {keys}")
@@ -72,39 +69,6 @@ def step_impl(context, keys):
                 )
             poetry_lock.write("]\n\n")
 
-
-@when("the Python deployable dependency is triggered.")
-def step_impl(context):
-    deploy_packages, non_deploy_packages = get_deploy_packages(
-        TEST_RESOURCES_DIR, TEST_RESOURCES_DIR
-    )
-    context.deploy_packages = deploy_packages
-    context.non_deploy_packages = non_deploy_packages
-
-
-def get_package_set(packages):
-    package_set = set()
-    for package in packages:
-        package_set.add((package.name, package.pretty_version))
-    return package_set
-
-
-def get_package_set_from_keys(keys, packages):
-    package_set = set()
-    for key in keys.split(","):
-        if key in packages:
-            package = packages[key]
-            package_set.add((package.name, package.pretty_version))
-    return package_set
-
-
-@then("package {keys} are able to be deployed to an alternate repository.")
-def step_impl(context, keys):
-    deploy_package_set = get_package_set(context.deploy_packages)
-    compare_package_set = get_package_set_from_keys(keys, context.packages)
-    assert compare_package_set.issubset(deploy_package_set)
-
-
 @given("no wheel file associated with package {keys}")
 def step_impl(context, keys):
     for key in keys.split(","):
@@ -115,8 +79,37 @@ def step_impl(context, keys):
                 os.remove(filepath)
 
 
+@when("the dependency deployment is triggered.")
+def step_impl(context):
+    artifacts_deploy = ArtifactsDeploy()
+    deploy_packages, non_deploy_packages = artifacts_deploy.create_packages(
+        TEST_RESOURCES_DIR, TEST_RESOURCES_DIR
+    )
+    context.deploy_packages = deploy_packages
+    context.non_deploy_packages = non_deploy_packages
+
+@then("package {keys} are able to be deployed to an alternate repository.")
+def step_impl(context, keys):
+    deploy_package_set = get_package_set(context.deploy_packages)
+    compare_package_set = get_package_set_from_keys(keys, context.packages)
+    assert compare_package_set.issubset(deploy_package_set)
+
 @then("package {keys} are not able to be deployed to an alternate repository.")
 def step_impl(context, keys):
     non_deploy_package_set = get_package_set(context.non_deploy_packages)
     compare_non_deploy_package_set = get_package_set_from_keys(keys, context.packages)
     assert compare_non_deploy_package_set.issubset(non_deploy_package_set)
+
+def get_package_set(packages):
+    package_set = set()
+    for package in packages:
+        package_set.add((package.name, package.pretty_version))
+    return package_set
+
+def get_package_set_from_keys(keys, packages):
+    package_set = set()
+    for key in keys.split(","):
+        if key in packages:
+            package = packages[key]
+            package_set.add((package.name, package.pretty_version))
+    return package_set
