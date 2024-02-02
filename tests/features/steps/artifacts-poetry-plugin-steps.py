@@ -8,6 +8,8 @@ TEST_RESOURCES_DIR = os.path.join(os.getcwd(), "tests", "resources")
 TEMPLATE_PY_PROJECT = os.path.join(TEST_RESOURCES_DIR, "template.toml")
 PY_PROJECT = os.path.join(TEST_RESOURCES_DIR, "pyproject.toml")
 POETRY_LOCK = os.path.join(TEST_RESOURCES_DIR, "poetry.lock")
+DIST_DIR = os.path.join(TEST_RESOURCES_DIR, "dist")
+WHEEL_FILE = os.path.join(DIST_DIR, "test-project.whl")
 
 
 class Package:
@@ -44,6 +46,10 @@ def the_following_artifacts(context):
 
 @given("a Python project with dependencies on package {keys}")
 def step_impl(context, keys):
+    if os.path.isdir(DIST_DIR) is False:
+        os.mkdir(DIST_DIR)
+    wheel_file = open(WHEEL_FILE, "w")
+    wheel_file.close()
     with open(POETRY_LOCK, "w") as poetry_lock:
         poetry_lock.write("\n[metadata]\n")
         poetry_lock.write('lock-version = "2.0"\n')
@@ -70,7 +76,7 @@ def step_impl(context, keys):
 @when("the Python deployable dependency is triggered.")
 def step_impl(context):
     deploy_packages, non_deploy_packages = get_deploy_packages(
-        os.getcwd(), TEST_RESOURCES_DIR
+        TEST_RESOURCES_DIR, TEST_RESOURCES_DIR
     )
     context.deploy_packages = deploy_packages
     context.non_deploy_packages = non_deploy_packages

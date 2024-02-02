@@ -17,22 +17,40 @@ REPOSITORY_NAME = "repository_name"
 logger = logging.getLogger(__name__)
 
 
+class RepoData:
+    def __init__(self, url, username, password):
+        self.url = url
+        self.username = username
+        self.password = password
+
+    def url(self):
+        return self.url
+
+    def username(self):
+        return self.username
+
+    def password(self):
+        return self.password
+
+
 def get_repository_data(config, repo_name, io):
     """Gets the URL, username, and password from the poetry configuration for the given repo name"""
-    repo_data = {}
-    repo_data["url"] = config.get(f"repositories.{repo_name}.url")
-    if repo_data["url"] is None:
+    err_msg = f"username and password are required. Please verify that your poetry config for this repository is correct for repository {repo_name}"
+    url = config.get(f"repositories.{repo_name}.url")
+    if url is None:
         raise RuntimeError(f"Repository {repo_name} is not defined")
     authenticator = Authenticator(config, io)
     auth = authenticator.get_http_auth(repo_name)
+    username = None
+    password = None
     if auth:
-        repo_data["username"] = auth.username
-        repo_data["password"] = auth.password
+        username = auth.username
+        password = auth.password
     else:
-        raise RuntimeError(
-            f"username and password are required. Please verify that your poetry config for this repository is correct for repository {repo_name}"
-        )
-    return repo_data
+        raise RuntimeError(err_msg)
+    if username is None or password is None:
+        raise RuntimeError(err_msg)
+    return RepoData(url, username, password)
 
 
 def get_packages(poetry) -> List[Package]:
@@ -51,7 +69,7 @@ def get_cached_wheel_files(cache_dir):
     return wheel_files
 
 
-def add_package_paths(packages: List[Package], wheel_files):
+def get_deploy_non_deploy_packages(packages: List[Package], wheel_files):
     """Adds the wheel file locations for each package's files"""
     non_deployable_packages = []
     deployable_packages = []
@@ -83,15 +101,16 @@ def upload_packages(poetry, packages: List[Package], url, username, password, io
                 )
 
 
-def add_project_package(poetry, packages: List[Package]):
+def get_project_package(poetry):
     """Adds the generated package to the list of packages with its associated wheel file"""
     project_package = poetry.package
     for root, dirs, files in os.walk("dist/"):
+        print(files)
         for file in files:
             if file.endswith(".whl"):
                 file_data = {"file": file, "url": Path(os.path.join(root, file))}
                 project_package.files.append(file_data)
-    packages.append(project_package)
+    return project_package
 
 
 def get_all_poetry(path):
@@ -108,16 +127,15 @@ def get_deploy_packages(root_dir, cache_dir):
     total_deployable_packages = []
     total_non_deployable_packages = []
     poetry_files = get_all_poetry(root_dir)
-    print(poetry_files)
     for poetry in poetry_files:
         packages = get_packages(poetry)
         wheel_files = get_cached_wheel_files(cache_dir)
-        deployable_packages, non_deployable_packages = add_package_paths(
+        deployable_packages, non_deployable_packages = get_deploy_non_deploy_packages(
             packages=packages, wheel_files=wheel_files
         )
         total_deployable_packages.extend(deployable_packages)
         total_non_deployable_packages.extend(non_deployable_packages)
-    add_project_package(poetry, total_deployable_packages)
+        total_deployable_packages.append(get_project_package(poetry))
     return total_deployable_packages, total_non_deployable_packages
 
 
@@ -135,20 +153,17 @@ class ArtifactsDeploy(Command):
         repo_name = self.argument(REPOSITORY_NAME)
         poetry = Factory().create_poetry(Path(os.getcwd()))
         config = poetry.config
-        repo_data = get_repository_data(config, repo_name, self.io)
-        url = repo_data["url"]
-        username = repo_data["username"]
-        password = repo_data["password"]
         packages, non_deployable_packages = get_deploy_packages(
             os.getcwd(),
-            poetry.config.artifacts_cache_directory.absolute().as_posix(),
+            config.artifacts_cache_directory.absolute().as_posix(),
         )
+        repo_data = get_repository_data(config, repo_name, self.io)
         upload_packages(
             poetry,
             packages=packages,
-            url=url,
-            username=username,
-            password=password,
+            url=repo_data.url,
+            username=repo_data.username,
+            password=repo_data.password,
             io=self.io,
         )
         for package in non_deployable_packages:
