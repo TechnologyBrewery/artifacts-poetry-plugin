@@ -97,20 +97,21 @@ class ArtifactsDeploy(Command):
         return deployable_packages, non_deployable_packages
 
     def upload_packages(
-        self, poetry, packages: List[Package], url, username, password, io
+        self, poetry_files, url, username, password, io
     ):
-        uploader = Uploader(poetry=Factory().create_poetry(), io=io)
-        uploader.auth(username=username, password=password)
-        session = uploader.make_session()
-        for package in packages:
-            uploader._package = package
-            for file in package.files:
-                if "url" in file:
-                    uploader._upload_file(
-                        session,
-                        url,
-                        file=file["url"],
-                    )
+        for poetry in poetry_files:
+            uploader = Uploader(poetry, io)
+            uploader.auth(username=username, password=password)
+            session = uploader.make_session()
+            for package in poetry.deployable_packages:
+                uploader._package = package
+                for file in package.files:
+                    if "url" in file:
+                        uploader._upload_file(
+                            session,
+                            url,
+                            file=file["url"],
+                        )
 
     def get_project_package(self, poetry):
         """Adds the generated package to the list of packages with its associated wheel file"""
@@ -148,29 +149,31 @@ class ArtifactsDeploy(Command):
             total_deployable_packages.extend(deployable_packages)
             total_non_deployable_packages.extend(non_deployable_packages)
             total_deployable_packages.append(self.get_project_package(poetry))
-        return total_deployable_packages, total_non_deployable_packages
+            poetry.deployable_packages = deployable_packages
+            poetry.non_deployable_packages = non_deployable_packages
+        return poetry_files
 
     def handle(self) -> int:
         self.line("Artifacts Deploy")
         repo_name = self.argument(REPOSITORY_NAME)
         config = Config.create()
-        packages, non_deployable_packages = self.create_packages(
+        poetry_files = self.create_packages(
             os.getcwd(),
             config.artifacts_cache_directory.absolute().as_posix(),
         )
         repo_data = self.get_repository_data(config, repo_name, self.io)
         self.upload_packages(
-            poetry,
-            packages=packages,
+            poetry_files=poetry_files,
             url=repo_data.url,
             username=repo_data.username,
             password=repo_data.password,
             io=self.io,
         )
-        for package in non_deployable_packages:
-            logger.warn(
-                f"Could not find any wheel files for package {package.name}. Package may be statically linked or doesnt exist in artifacts cache"
-            )
+        for poetry in poetry_files:
+            for package in poetry.non_deployable_packages:
+                logger.warn(
+                    f"Could not find any wheel files for package {package.name}. Package may be statically linked or doesnt exist in artifacts cache"
+                )
         return 0
 
 
