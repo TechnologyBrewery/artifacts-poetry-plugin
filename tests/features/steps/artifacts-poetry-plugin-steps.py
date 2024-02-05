@@ -4,13 +4,8 @@ from behave import then
 from artifacts_poetry_plugin.plugin import ArtifactsDeploy
 import os
 
-TEST_RESOURCES_DIR = os.path.join(os.getcwd(), "resources")
+TEST_RESOURCES_DIR = os.path.join(os.getcwd(), "tests", "resources")
 ARTIFACT_CACHE = os.path.join(TEST_RESOURCES_DIR, "artifacts")
-TEMPLATE_PY_PROJECT = os.path.join(TEST_RESOURCES_DIR, "template.toml")
-PY_PROJECT = os.path.join(TEST_RESOURCES_DIR, "pyproject.toml")
-POETRY_LOCK = os.path.join(TEST_RESOURCES_DIR, "poetry.lock")
-DIST_DIR = os.path.join(TEST_RESOURCES_DIR, "dist")
-WHEEL_FILE = os.path.join(DIST_DIR, "test-project.whl")
 
 
 class Package:
@@ -47,53 +42,6 @@ def the_following_artifacts(context):
 def step_impl(context, project_name, keys):
     create_project(context, TEST_RESOURCES_DIR, keys, project_name)
 
-def create_dir(path):
-    if os.path.isdir(path) is False:
-        os.mkdir(path)
-
-def create_project(context, path, keys, project_name):
-    project_path = os.path.join(path, "project")
-    create_dir(project_path)
-    dist_path = os.path.join(project_path, 'dist')
-    create_dir(dist_path)
-    wheel_path = os.path.join(dist_path, "project.whl")
-    wheel_file = open(wheel_path, "w")
-    wheel_file.close()
-    write_pyproject_file(project_path, project_name)
-    write_lock_file(context, project_path, keys)
-    context.current_dir = project_path
-
-def write_pyproject_file(path, project_name):
-    with open(os.path.join(path, 'pyproject.toml'), "w") as pyproject:
-        pyproject.write("\n[tool.poetry]\n")
-        pyproject.write(f'name = "{project_name}"\n')
-        pyproject.write('version = "1.0.0"\n')
-        pyproject.write('description = ""\n')
-        pyproject.write('authors = []')
-
-def write_lock_file(context, path, keys):
-    with open(os.path.join(path, 'poetry.lock'), "w") as poetry_lock:
-        poetry_lock.write("\n[metadata]\n")
-        poetry_lock.write('lock-version = "2.0"\n')
-        poetry_lock.write('python-versions = "^3.8"\n\n')
-        for key in keys.split(","):
-            package = context.packages[key]
-            files = package.files
-            poetry_lock.write("[[package]]\n")
-            poetry_lock.write(f'name = "{package.name}"\n')
-            poetry_lock.write(f'version = "{package.pretty_version}"\n')
-            poetry_lock.write(f'description = "Test"\n')
-            poetry_lock.write(f"optional = false\n")
-            poetry_lock.write(f'python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"\n')
-            poetry_lock.write(f"files = [\n")
-            for file in files:
-                poetry_lock.write(
-                    "{"
-                    + f'file = "{file}", hash = "sha256:ebda1a6c9e5bfe95c5f9f0a2794e01c7098b3dde86c10a95d8621c5907ff6f1c"'
-                    + "},\n"
-                )
-            poetry_lock.write("]\n\n")
-
 
 @given("no wheel file associated with package {keys}")
 def step_impl(context, keys):
@@ -105,12 +53,11 @@ def step_impl(context, keys):
                 os.remove(filepath)
 
 
-@when("the dependency deployment is triggered.")
-def step_impl(context):
+@when("the dependency deployment is triggered on {project_name}.")
+def step_impl(context, project_name):
+    project_path = os.path.join(TEST_RESOURCES_DIR, project_name)
     artifacts_deploy = ArtifactsDeploy()
-    poetry_files = artifacts_deploy.create_poetry_packages(
-        TEST_RESOURCES_DIR, ARTIFACT_CACHE
-    )
+    poetry_files = artifacts_deploy.create_poetry_packages(project_path, ARTIFACT_CACHE)
     deploy_packages = []
     non_deploy_packages = []
     for poetry in poetry_files:
@@ -119,19 +66,15 @@ def step_impl(context):
     context.deploy_packages = deploy_packages
     context.non_deploy_packages = non_deploy_packages
 
-@given('a python subproject with dependencies on package {keys}')
-def step_impl(context, keys):
-    project_path = os.path.join(context.current_dir, "project")
-    if os.path.isdir(project_path) is False:
-        os.mkdir(project_path)
-    write_lock_file(context, DIST_DIR, keys)
-    context.current_dir = DIST_DIR
+
+@given("a python subproject {project_name} with dependencies on package {keys}")
+def step_impl(context, project_name, keys):
+    create_project(context, context.current_dir, keys, project_name)
 
 
 @then("package {keys} are able to be deployed to an alternate repository.")
 def step_impl(context, keys):
     deploy_package_set = get_package_set(context.deploy_packages)
-    print(f"Deploy set {deploy_package_set}")
     compare_package_set = get_package_set_from_keys(keys, context.packages)
     assert compare_package_set.issubset(deploy_package_set)
 
@@ -157,3 +100,54 @@ def get_package_set_from_keys(keys, packages):
             package = packages[key]
             package_set.add((package.name, package.pretty_version))
     return package_set
+
+
+def create_dir(path):
+    if os.path.isdir(path) is False:
+        os.mkdir(path)
+
+
+def create_project(context, path, keys, project_name):
+    project_path = os.path.join(path, project_name)
+    create_dir(project_path)
+    dist_path = os.path.join(project_path, "dist")
+    create_dir(dist_path)
+    wheel_path = os.path.join(dist_path, "project.whl")
+    wheel_file = open(wheel_path, "w")
+    wheel_file.close()
+    write_pyproject_file(project_path, project_name)
+    write_lock_file(context, project_path, keys)
+    context.current_dir = project_path
+
+
+def write_pyproject_file(path, project_name):
+    with open(os.path.join(path, "pyproject.toml"), "w") as pyproject:
+        pyproject.write("\n[tool.poetry]\n")
+        pyproject.write(f'name = "{project_name}"\n')
+        pyproject.write('version = "1.0.0"\n')
+        pyproject.write('description = ""\n')
+        pyproject.write("authors = []")
+
+
+def write_lock_file(context, path, keys):
+    with open(os.path.join(path, "poetry.lock"), "w") as poetry_lock:
+        poetry_lock.write("\n[metadata]\n")
+        poetry_lock.write('lock-version = "2.0"\n')
+        poetry_lock.write('python-versions = "^3.8"\n\n')
+        for key in keys.split(","):
+            package = context.packages[key]
+            files = package.files
+            poetry_lock.write("[[package]]\n")
+            poetry_lock.write(f'name = "{package.name}"\n')
+            poetry_lock.write(f'version = "{package.pretty_version}"\n')
+            poetry_lock.write(f'description = "Test"\n')
+            poetry_lock.write(f"optional = false\n")
+            poetry_lock.write(f'python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"\n')
+            poetry_lock.write(f"files = [\n")
+            for file in files:
+                poetry_lock.write(
+                    "{"
+                    + f'file = "{file}", hash = "sha256:ebda1a6c9e5bfe95c5f9f0a2794e01c7098b3dde86c10a95d8621c5907ff6f1c"'
+                    + "},\n"
+                )
+            poetry_lock.write("]\n\n")
