@@ -113,13 +113,14 @@ class ArtifactsDeploy(Command):
 
     def get_project_package(self, poetry):
         """Adds the generated package to the list of packages with its associated wheel file"""
+        project_package_path = os.path.join(poetry.root_dir, "dist")
         project_package = poetry.package
-        for root, dirs, files in os.walk("dist/"):
-            print(files)
+        for root, dirs, files in os.walk(project_package_path):
             for file in files:
                 if file.endswith(".whl"):
                     file_data = {"file": file, "url": Path(os.path.join(root, file))}
                     project_package.files.append(file_data)
+                    print(f"Wheel at {root}")
         return project_package
 
     def get_all_poetry(self, path):
@@ -127,13 +128,14 @@ class ArtifactsDeploy(Command):
         for root, dirs, files in os.walk(Path(path)):
             for file in files:
                 if file == "pyproject.toml":
-                    poetry_files.append(Factory().create_poetry(Path(root)))
+                    poetry_root = Path(root)
+                    poetry = Factory().create_poetry(poetry_root)
+                    poetry.root_dir = poetry_root
+                    poetry_files.append(poetry)
         return poetry_files
 
     def create_poetry_packages(self, root_dir, cache_dir):
         """Gets all poetry packages required by each downstream project from the given cache directory."""
-        total_deployable_packages = []
-        total_non_deployable_packages = []
         poetry_files = self.get_all_poetry(root_dir)
         for poetry in poetry_files:
             packages = self.get_poetry_packages(poetry)
@@ -144,9 +146,11 @@ class ArtifactsDeploy(Command):
             ) = self.get_deploy_non_deploy_packages(
                 packages=packages, wheel_files=wheel_files
             )
-            total_deployable_packages.extend(deployable_packages)
-            total_non_deployable_packages.extend(non_deployable_packages)
-            total_deployable_packages.append(self.get_project_package(poetry))
+            project_package = self.get_project_package(poetry)
+            if len(project_package.files) > 0:
+                deployable_packages.append(project_package)
+            else:
+                non_deployable_packages.append(project_package)
             poetry.deployable_packages = deployable_packages
             poetry.non_deployable_packages = non_deployable_packages
         return poetry_files
