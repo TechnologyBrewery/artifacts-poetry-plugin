@@ -97,6 +97,7 @@ class ArtifactsDeploy(Command):
         return deployable_packages, non_deployable_packages
 
     def upload_packages(self, poetry_files, url, username, password, io):
+        deploy_set = set()
         for poetry in poetry_files:
             uploader = Uploader(poetry, io)
             uploader.auth(username=username, password=password)
@@ -104,7 +105,8 @@ class ArtifactsDeploy(Command):
             for package in poetry.deployable_packages:
                 uploader._package = package
                 for file in package.files:
-                    if "url" in file:
+                    if "url" in file and file["url"] not in deploy_set:
+                        deploy_set.add(file["url"])
                         uploader._upload_file(
                             session,
                             url,
@@ -120,7 +122,6 @@ class ArtifactsDeploy(Command):
                 if file.endswith(".whl"):
                     file_data = {"file": file, "url": Path(os.path.join(root, file))}
                     project_package.files.append(file_data)
-                    print(f"Wheel at {root}")
         return project_package
 
     def get_all_poetry(self, path):
@@ -133,6 +134,16 @@ class ArtifactsDeploy(Command):
                     poetry.root_dir = poetry_root
                     poetry_files.append(poetry)
         return poetry_files
+
+    def log_non_deployable_packages(self, poetry_files):
+        package_set = set()
+        for poetry in poetry_files:
+            for package in poetry.non_deployable_packages:
+                if package.name not in package_set:
+                    package_set.add(package.name)
+                    logger.warn(
+                        f"Could not find any wheel files for package {package.name}:{package.pretty_version}. Package may be statically linked or doesnt exist in artifacts cache"
+                    )
 
     def create_poetry_packages(self, root_dir, cache_dir):
         """Gets all poetry packages required by each downstream project from the given cache directory."""
@@ -171,11 +182,7 @@ class ArtifactsDeploy(Command):
             password=repo_data.password,
             io=self.io,
         )
-        for poetry in poetry_files:
-            for package in poetry.non_deployable_packages:
-                logger.warn(
-                    f"Could not find any wheel files for package {package.name}. Package may be statically linked or doesnt exist in artifacts cache"
-                )
+        self.log_non_deployable_packages(poetry_files)
         return 0
 
 
