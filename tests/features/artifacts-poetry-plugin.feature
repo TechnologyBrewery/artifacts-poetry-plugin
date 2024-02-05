@@ -10,12 +10,15 @@ Feature: Artifacts-Poetry-Plugin
 
 
     Scenario: Get all deployable Python dependencies from a project
-        Given a Python project with dependencies on package A,B
+        Given a python project test-1 with dependencies on package A,B
         When the dependency deployment is triggered. 
         Then package A,B are able to be deployed to an alternate repository.  
+        
     
     Scenario: Get a non deployable Python dependency from a project
-        Given a Python project with dependencies on package A
+        Given a python project test-2 with dependencies on package A
         But no wheel file associated with package A
         When the dependency deployment is triggered. 
         Then package A are not able to be deployed to an alternate repository.
+
+    

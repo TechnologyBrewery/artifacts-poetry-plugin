@@ -4,7 +4,8 @@ from behave import then
 from artifacts_poetry_plugin.plugin import ArtifactsDeploy
 import os
 
-TEST_RESOURCES_DIR = os.path.join(os.getcwd(), "tests", "resources")
+TEST_RESOURCES_DIR = os.path.join(os.getcwd(), "resources")
+ARTIFACT_CACHE = os.path.join(TEST_RESOURCES_DIR, "artifacts")
 TEMPLATE_PY_PROJECT = os.path.join(TEST_RESOURCES_DIR, "template.toml")
 PY_PROJECT = os.path.join(TEST_RESOURCES_DIR, "pyproject.toml")
 POETRY_LOCK = os.path.join(TEST_RESOURCES_DIR, "poetry.lock")
@@ -31,23 +32,47 @@ class Package:
 @given("the following artifacts")
 def the_following_artifacts(context):
     context.packages = {}
+    create_dir(ARTIFACT_CACHE)
     for row in context.table:
         name = row["package"]
         version = row["version"]
         filename = f"{name}-{version}.whl"
-        file = open(os.path.join(TEST_RESOURCES_DIR, filename), "w")
+        file = open(os.path.join(ARTIFACT_CACHE, filename), "w")
         file.close()
         files = [filename]
         context.packages[row["key"]] = Package(name, version, files)
 
 
-@given("a Python project with dependencies on package {keys}")
-def step_impl(context, keys):
-    if os.path.isdir(DIST_DIR) is False:
-        os.mkdir(DIST_DIR)
-    wheel_file = open(WHEEL_FILE, "w")
+@given("a python project {project_name} with dependencies on package {keys}")
+def step_impl(context, project_name, keys):
+    create_project(context, TEST_RESOURCES_DIR, keys, project_name)
+
+def create_dir(path):
+    if os.path.isdir(path) is False:
+        os.mkdir(path)
+
+def create_project(context, path, keys, project_name):
+    project_path = os.path.join(path, "project")
+    create_dir(project_path)
+    dist_path = os.path.join(project_path, 'dist')
+    create_dir(dist_path)
+    wheel_path = os.path.join(dist_path, "project.whl")
+    wheel_file = open(wheel_path, "w")
     wheel_file.close()
-    with open(POETRY_LOCK, "w") as poetry_lock:
+    write_pyproject_file(project_path, project_name)
+    write_lock_file(context, project_path, keys)
+    context.current_dir = project_path
+
+def write_pyproject_file(path, project_name):
+    with open(os.path.join(path, 'pyproject.toml'), "w") as pyproject:
+        pyproject.write("\n[tool.poetry]\n")
+        pyproject.write(f'name = "{project_name}"\n')
+        pyproject.write('version = "1.0.0"\n')
+        pyproject.write('description = ""\n')
+        pyproject.write('authors = []')
+
+def write_lock_file(context, path, keys):
+    with open(os.path.join(path, 'poetry.lock'), "w") as poetry_lock:
         poetry_lock.write("\n[metadata]\n")
         poetry_lock.write('lock-version = "2.0"\n')
         poetry_lock.write('python-versions = "^3.8"\n\n')
@@ -75,7 +100,7 @@ def step_impl(context, keys):
     for key in keys.split(","):
         package = context.packages[key]
         for file in package.files:
-            filepath = os.path.join(TEST_RESOURCES_DIR, file)
+            filepath = os.path.join(ARTIFACT_CACHE, file)
             if os.path.isfile(filepath):
                 os.remove(filepath)
 
@@ -84,7 +109,7 @@ def step_impl(context, keys):
 def step_impl(context):
     artifacts_deploy = ArtifactsDeploy()
     poetry_files = artifacts_deploy.create_poetry_packages(
-        TEST_RESOURCES_DIR, TEST_RESOURCES_DIR
+        TEST_RESOURCES_DIR, ARTIFACT_CACHE
     )
     deploy_packages = []
     non_deploy_packages = []
@@ -94,10 +119,19 @@ def step_impl(context):
     context.deploy_packages = deploy_packages
     context.non_deploy_packages = non_deploy_packages
 
+@given('a python subproject with dependencies on package {keys}')
+def step_impl(context, keys):
+    project_path = os.path.join(context.current_dir, "project")
+    if os.path.isdir(project_path) is False:
+        os.mkdir(project_path)
+    write_lock_file(context, DIST_DIR, keys)
+    context.current_dir = DIST_DIR
+
 
 @then("package {keys} are able to be deployed to an alternate repository.")
 def step_impl(context, keys):
     deploy_package_set = get_package_set(context.deploy_packages)
+    print(f"Deploy set {deploy_package_set}")
     compare_package_set = get_package_set_from_keys(keys, context.packages)
     assert compare_package_set.issubset(deploy_package_set)
 
