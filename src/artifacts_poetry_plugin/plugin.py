@@ -96,9 +96,7 @@ class ArtifactsDeploy(Command):
                 non_deployable_packages.append(package)
         return deployable_packages, non_deployable_packages
 
-    def upload_packages(
-        self, poetry_files, url, username, password, io
-    ):
+    def upload_packages(self, poetry_files, url, username, password, io):
         for poetry in poetry_files:
             uploader = Uploader(poetry, io)
             uploader.auth(username=username, password=password)
@@ -132,8 +130,8 @@ class ArtifactsDeploy(Command):
                     poetry_files.append(Factory().create_poetry(Path(root)))
         return poetry_files
 
-    def create_packages(self, root_dir, cache_dir):
-        """Gets all deployable packages required by each downstream project from the given cache directory. A package is deployable if it has any wheel files associated with it"""
+    def create_poetry_packages(self, root_dir, cache_dir):
+        """Gets all poetry packages required by each downstream project from the given cache directory."""
         total_deployable_packages = []
         total_non_deployable_packages = []
         poetry_files = self.get_all_poetry(root_dir)
@@ -157,7 +155,7 @@ class ArtifactsDeploy(Command):
         self.line("Artifacts Deploy")
         repo_name = self.argument(REPOSITORY_NAME)
         config = Config.create()
-        poetry_files = self.create_packages(
+        poetry_files = self.create_poetry_packages(
             os.getcwd(),
             config.artifacts_cache_directory.absolute().as_posix(),
         )

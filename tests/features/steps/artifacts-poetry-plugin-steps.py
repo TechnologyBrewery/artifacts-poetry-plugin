@@ -83,9 +83,14 @@ def step_impl(context, keys):
 @when("the dependency deployment is triggered.")
 def step_impl(context):
     artifacts_deploy = ArtifactsDeploy()
-    deploy_packages, non_deploy_packages = artifacts_deploy.create_packages(
+    poetry_files = artifacts_deploy.create_poetry_packages(
         TEST_RESOURCES_DIR, TEST_RESOURCES_DIR
     )
+    deploy_packages = []
+    non_deploy_packages = []
+    for poetry in poetry_files:
+        deploy_packages.extend(poetry.deployable_packages)
+        non_deploy_packages.extend(poetry.non_deployable_packages)
     context.deploy_packages = deploy_packages
     context.non_deploy_packages = non_deploy_packages
 
