@@ -1,27 +1,14 @@
+from typing import List
 from behave import given
 from behave import when
 from behave import then
 from artifacts_poetry_plugin.plugin import ArtifactsDeploy
+from poetry.core.packages.package import Package
+from poetry.core.constraints.version import Version
 import os
 
 TEST_RESOURCES_DIR = os.path.join(os.getcwd(), "tests", "resources")
 ARTIFACT_CACHE = os.path.join(TEST_RESOURCES_DIR, "artifacts")
-
-
-class Package:
-    def __init__(self, name, pretty_version, files) -> None:
-        self.name = name
-        self.pretty_version = pretty_version
-        self.files = files
-
-    def name(self):
-        return self.name
-
-    def pretty_version(self):
-        return self.pretty_version
-
-    def files(self):
-        return self.files
 
 
 @given("the following artifacts")
@@ -35,7 +22,10 @@ def the_following_artifacts(context):
         file = open(os.path.join(ARTIFACT_CACHE, filename), "w")
         file.close()
         files = [filename]
-        context.packages[row["key"]] = Package(name, version, files)
+        version_obj = Version()
+        package = Package(name=name, version=version_obj, pretty_version=version)
+        package.files = files
+        context.packages[row["key"]] = package
 
 
 @given("a python project {project_name} with dependencies on package {keys}")
@@ -86,7 +76,8 @@ def step_impl(context, keys):
     assert compare_non_deploy_package_set.issubset(non_deploy_package_set)
 
 
-def get_package_set(packages):
+def get_package_set(packages: List[Package]):
+    """Converts a list of packages to a set"""
     package_set = set()
     for package in packages:
         package_set.add((package.name, package.pretty_version))
@@ -94,6 +85,7 @@ def get_package_set(packages):
 
 
 def get_package_set_from_keys(keys, packages):
+    """Gets the packages identified by the keys and put them into a set"""
     package_set = set()
     for key in keys.split(","):
         if key in packages:
@@ -108,6 +100,7 @@ def create_dir(path):
 
 
 def create_project(context, path, keys, project_name):
+    """Creates a poetry project at the given path with the packages identified by the keys"""
     project_path = os.path.join(path, project_name)
     create_dir(project_path)
     dist_path = os.path.join(project_path, "dist")
@@ -121,6 +114,7 @@ def create_project(context, path, keys, project_name):
 
 
 def write_pyproject_file(path, project_name):
+    """Writes a pyproject file"""
     with open(os.path.join(path, "pyproject.toml"), "w") as pyproject:
         pyproject.write("\n[tool.poetry]\n")
         pyproject.write(f'name = "{project_name}"\n')
@@ -130,6 +124,7 @@ def write_pyproject_file(path, project_name):
 
 
 def write_lock_file(context, path, keys):
+    """Writes a poetry lock file with packages identified by the keys"""
     with open(os.path.join(path, "poetry.lock"), "w") as poetry_lock:
         poetry_lock.write("\n[metadata]\n")
         poetry_lock.write('lock-version = "2.0"\n')

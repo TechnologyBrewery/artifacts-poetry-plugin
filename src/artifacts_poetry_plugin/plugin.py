@@ -108,9 +108,7 @@ class ArtifactsDeploy(Command):
                     if "url" in file and file["url"] not in deploy_set:
                         deploy_set.add(file["url"])
                         uploader._upload_file(
-                            session,
-                            url,
-                            file=file["url"],
+                            session, url, file=file["url"], skip_existing=True
                         )
 
     def get_project_package(self, poetry):
