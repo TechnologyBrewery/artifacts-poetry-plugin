@@ -1,7 +1,7 @@
 # Artifacts Poetry Plugin
 
 ## Description
-The Artifacts Poetry Plugin is used to deploy all direct and transitive package dependencies of a python project to an alternate repository. The plugin requires the use of a pyproject.toml and generated poetry.lock file. All dependencies must be installed in poetry's local artifacts cache. 
+The Artifacts Poetry Plugin is used to deploy all direct and transitive package dependencies of all downstream python projects to an alternate repository. The plugin requires the use of a pyproject.toml and generated poetry.lock file. All dependencies must be installed in poetry's local artifacts cache. 
 
 ## Requirments
 Poetry >= 1.6.0
@@ -10,6 +10,10 @@ Python >= 3.8
 ## Installation
 Below describes the steps in order to install the poetry plugin.
 
+### Repository Installation
+* Execute the command `poetry self add artifacts-poetry-plugin` to install the plugin
+
+### Local Installation
 * Make sure you are in the project's root directory. 
 * Execute the command `mvn clean install` to build the plugin.
 * Execute the command `pip install dist/name-of-wheel-file`. (Note: A new terminal instance will need to be created in order to run the plugin)
