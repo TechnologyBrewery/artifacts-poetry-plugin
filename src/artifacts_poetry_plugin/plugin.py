@@ -125,12 +125,12 @@ class ArtifactsDeploy(Command):
     def get_all_poetry(self, path):
         poetry_files = []
         for root, dirs, files in os.walk(Path(path)):
-            for file in files:
-                if file == "pyproject.toml":
-                    poetry_root = Path(root)
-                    poetry = Factory().create_poetry(poetry_root)
-                    poetry.root_dir = poetry_root
-                    poetry_files.append(poetry)
+            if "pyproject.toml" in files and "poetry.lock" in files:
+                poetry_root = Path(root)
+                poetry = Factory().create_poetry(poetry_root)
+                poetry.root_dir = poetry_root
+                poetry_files.append(poetry)
+                logger.info(f"Found python project at {root}")
         return poetry_files
 
     def log_non_deployable_packages(self, poetry_files):
