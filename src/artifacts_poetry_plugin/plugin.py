@@ -76,7 +76,7 @@ class ArtifactsDeploy(Command):
         wheel_files = {}
         for root, dirs, files in os.walk(cache_dir):
             for file in files:
-                if file.endswith(".whl"):
+                if file.endswith(".whl") or file.endswith(".tar.gz"):
                     wheel_files[file] = Path(os.path.join(root, file))
         return wheel_files
 
@@ -117,7 +117,7 @@ class ArtifactsDeploy(Command):
         project_package = poetry.package
         for root, dirs, files in os.walk(project_package_path):
             for file in files:
-                if file.endswith(".whl"):
+                if file.endswith(".whl") or file.endswith(".tar.gz"):
                     file_data = {"file": file, "url": Path(os.path.join(root, file))}
                     project_package.files.append(file_data)
         return project_package
@@ -140,7 +140,7 @@ class ArtifactsDeploy(Command):
                 if package.name not in package_set:
                     package_set.add(package.name)
                     logger.warn(
-                        f"Could not find any wheel files for package {package.name}:{package.pretty_version}. Package may be statically linked or doesnt exist in artifacts cache"
+                        f"Could not find any wheel or tar.gz files for package {package.name}:{package.pretty_version}. Package may be statically linked or doesnt exist in artifacts cache"
                     )
 
     def create_poetry_packages(self, root_dir, cache_dir):
