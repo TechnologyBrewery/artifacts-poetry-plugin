@@ -133,18 +133,37 @@ class ArtifactsDeployHelper:
             poetry_root = Path(root)
             poetry = Factory().create_poetry(poetry_root)
             poetry.root_dir = poetry_root
-            logger.info(f"Found python project at {root}")
+            logger.debug(f"Found python project at {root}")
         return poetry
 
-    def log_non_deployable_packages(self, poetry_list):
-        package_set = set()
+    def get_package_dict(self, packages):
+        return {x.name : x for x in packages}
+
+    def filter_deployable_non_deployable(self, poetry_list):
+        """Filter out duplicates in deployable and non deployable"""
+        total_deployable = []
+        total_non_deployable = []
         for poetry in poetry_list:
-            for package in poetry.non_deployable_packages:
-                if package.name not in package_set:
-                    package_set.add(package.name)
-                    logger.warn(
-                        f"Could not find any wheel or tar.gz files for package {package.name}:{package.pretty_version}. Package may be statically linked or doesnt exist in artifacts cache"
-                    )
+            total_deployable.extend(poetry.deployable_packages)
+            total_non_deployable.extend(poetry.non_deployable_packages)
+
+        """Filter out packages using direct paths in non_deployable packages that may actually be deployable since they exist in the monorepo"""
+        total_deployable_dict = self.get_package_dict(set(total_deployable))
+        total_non_deployable_dict = self.get_package_dict(set(total_non_deployable))
+        filter_total_non_deployable_dict = total_non_deployable_dict.copy()
+        for package_key in total_non_deployable_dict:
+            if package_key in total_deployable_dict:
+                filter_total_non_deployable_dict.pop(package_key)
+        return list(total_deployable_dict.values()), list(
+            filter_total_non_deployable_dict.values()
+        )
+
+    def log_non_deployable_packages(self, poetry_list):
+        _, total_non_deployable = self.filter_deployable_non_deployable(poetry_list)
+        for package in total_non_deployable:
+            logger.warn(
+                f"Could not find any wheel or tar.gz files for package {package.name}:{package.pretty_version}. Package may be statically linked or doesn't exist in artifacts cache"
+            )
 
     def create_poetry_packages(self, root_dir, cache_dir, deploy_downstream):
         """Gets all poetry packages required by each downstream project from the given cache directory."""
@@ -158,6 +177,13 @@ class ArtifactsDeployHelper:
             ) = self.get_deploy_non_deploy_packages(
                 packages=packages, dependency_files=dependency_files
             )
+            logger.info(
+                "Getting packages for poetry project at "
+                + poetry.pyproject.file.path.absolute().as_posix()
+            )
+            dependency_packages = deployable_packages + non_deployable_packages
+            for package in dependency_packages:
+                logger.info(package.name + ":" + package.pretty_version)
             project_package = self.get_project_dist_package(poetry)
             if len(project_package.files) > 0:
                 deployable_packages.append(project_package)
@@ -168,6 +194,7 @@ class ArtifactsDeployHelper:
         return poetry_list
 
     def deploy_poetry(self, repo_name, downstream, io):
+        logging.basicConfig(level=logging.INFO)
         config = Config.create()
         poetry_list = self.create_poetry_packages(
             os.getcwd(),
