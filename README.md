@@ -35,6 +35,6 @@ Below describe the different commands the plugin offers
 
 ### Artifacts Deploy All
 * Used to deploy all the direct and transitive package dependencies of all python poetry projects in a mono-repository. Any directory that includes a `pyproject.toml` and `poetry.lock` file is considered to be a python project. 
-* You must register a repository using the following command `poetry add <repository-name> <url>` where `repository-name` is the name of the repository and `url` is the url to the repository
+* You must register a repository using the following command `poetry config repositories.<repository-name> <url>` where `repository-name` is the name of the repository and `url` is the url to the repository
 * If the repository requires credentials, use the following to register to the previously added repository `poetry config http-basic.<repository-name> <username> <password>`.
 * To run, execute the command `poetry artifacts-deploy-all <repository-name>`. 
